@@ -1,4 +1,7 @@
 #include <stdio.h>
+#include <stdlib.h>
+
+#include <editline/readline.h>
 
 static char input[2048];
 
@@ -7,13 +10,16 @@ int main(int argc, char** argv) {
 	puts("Press Ctrl+c to Exit\n");
 
 	while (1) {
-		fputs("lispy> ", stdout);
+		//read a line of user input
+		char* input = readline("lispy> ");
 
-		//read a line of user input, max length = 2048
-		fgets(input, 2048, stdin);
+		//add input to history
+		add_history(input);
 
 		//repeat input back to user
-		printf("No you're a %s", input);;
+		printf("No you're a %s\n", input);;
+
+		free(input);
 	}
 
 	return 0;
