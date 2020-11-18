@@ -3,7 +3,7 @@
 
 #include <editline/readline.h>
 
-static char input[2048];
+#include "mpc.h"
 
 int main(int argc, char** argv) {
 	puts("Lispy Version 0.0.0.0.1");
