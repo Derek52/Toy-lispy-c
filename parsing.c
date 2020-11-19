@@ -5,8 +5,22 @@
 
 #include "mpc.h"
 
-long eval(mpc_ast_t* t);
-long eval_op(long x, char* op, long y);
+typedef struct {
+	int type;
+	long num;
+	int err;
+} lval;
+
+lval eval(mpc_ast_t* t);
+lval eval_op(lval x, char* op, lval y);
+lval lval_num(long x);
+lval lval_err(int x);
+void lval_print(lval l);
+void lval_println(lval v);
+
+
+enum { LVAL_NUM, LVAL_ERR };
+enum { LERR_DIV_ZERO, LERR_BAD_OP, LERR_BAD_NUM };
 
 int main(int argc, char** argv) {
 	mpc_parser_t* Number    = mpc_new("number");
@@ -38,8 +52,8 @@ int main(int argc, char** argv) {
 		mpc_result_t r;
 
 		if (mpc_parse("<stdin>", input, Lispy, &r)) {
-			 long result = eval(r.output);
-	 		printf("%li\n", result);
+			lval result = eval(r.output);
+			lval_println(result);
 		 	mpc_ast_delete(r.output);
 		} else {
 			mpc_err_print(r.error);
@@ -53,18 +67,24 @@ int main(int argc, char** argv) {
 	return 0;
 }
 
-long eval(mpc_ast_t* t) {
+lval eval(mpc_ast_t* t) {
 
 	//If the node is a number, return the number
 	if (strstr(t->tag, "number")) {
-		return atoi(t->contents);
+		//check if there was an error in the conversion
+		errno = 0;//errno is a c preprocessor macro. 
+		long x = strtol(t->contents, NULL, 10);
+		if (errno != ERANGE) {
+			return lval_num(x);
+		} else {
+			return lval_err(LERR_BAD_NUM);
+		}
 	}
 
 	//the operator is always the node's 2nd child
 	char* op = t->children[1]->contents;
-
 	//store the third child in 'x'
-	long x = eval(t->children[2]);
+	lval x = eval(t->children[2]);
 
 	//iterate over the remaining children
 	int i = 3;
@@ -76,16 +96,62 @@ long eval(mpc_ast_t* t) {
 }
 
 //use operator string to determine what operation to perform
-long eval_op(long x, char* op, long y) {
-	if (strcmp(op, "+") == 0) { return x + y; }
-	if (strcmp(op, "-") == 0) { return x - y; }
-	if (strcmp(op, "/") == 0) { return x / y; }
-	if (strcmp(op, "*") == 0) { return x * y; }
-	return 0;
+lval eval_op(lval x, char* op, lval y) {
+	//if either value is an error, just return it
+	if (x.type == LVAL_ERR) { return x; }
+	if (y.type == LVAL_ERR) { return y; }
+
+	//do math if both values are actually numbers
+	if (strcmp(op, "+") == 0) { return lval_num(x.num + y.num); }
+	if (strcmp(op, "-") == 0) { return lval_num(x.num - y.num); }
+	if (strcmp(op, "*") == 0) { return lval_num(x.num * y.num); }
+	if (strcmp(op, "/") == 0) { 
+		//if the divisor is 0, return the div by zero error
+		if (y.num == 0) {
+			return lval_err(LERR_DIV_ZERO);
+		} else {
+			 return lval_num(x.num / y.num); 
+		}
+	}
+
+	return lval_err(LERR_BAD_OP);
+}
+
+lval lval_num(long x) {
+	lval v;
+	v.type = LVAL_NUM;
+	v.num = x;
+	return v;
+}
+
+lval lval_err(int x) {
+	lval v;
+	v.type = LVAL_ERR;
+	v.err = x;
+	return v;
 }
 
 
+void lval_print(lval v) {
+	 switch (v.type) {
+		 case LVAL_NUM: 
+			 printf("%li", v.num);
+			 break;
+		 case LVAL_ERR:
+			 if (v.err == LERR_DIV_ZERO) {
+				 printf("Error: Division By Zero!");
+			 }
+			 if (v.err == LERR_BAD_OP) {
+				 printf("Error: Invalid Operation!");
+			 }
+			 if (v.err == LERR_BAD_NUM) {
+				 printf("Error: Invalid Number!");
+			 }
+			 break;
+	 }
+}
 
-
-
-
+void lval_println(lval v) {
+	 lval_print(v);
+	 putchar('\n');
+}
