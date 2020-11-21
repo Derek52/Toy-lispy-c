@@ -32,6 +32,8 @@ lval* lval_add(lval* v, lval* x);
 lval* lval_pop(lval* v, int i);
 lval* lval_take(lval* v, int i);
 lval* builtin_op(lval* a, char* op);
+lval* builtin_head(lval* a);
+lval* builtin_tail(lval* a);
 void lval_expr_print(lval* v, char open, char close);
 void lval_print(lval* l);
 void lval_println(lval* v);
@@ -52,7 +54,8 @@ int main(int argc, char** argv) {
 	mpca_lang(MPCA_LANG_DEFAULT,
 	  "\
 	  number   : /-?[0-9]+/ ;            \
-	  symbol   : '+' | '-' | '*' | '/' ; \
+	  symbol   : '+' | '-' | '*' | '/'   \
+	  | \"list\" | \"head\" | \"tail\" | \"join\" | \"eval\" ; \
 	  sexpr    : '(' <expr>* ')' ;       \
 	  qexpr    : '{' <expr>* '}' ;       \
 	  expr     : <number> | <symbol> | <sexpr> | <qexpr> ; \
@@ -281,6 +284,58 @@ lval* builtin_op(lval* a, char* op) {
 
 	lval_del(a);
 	return x;
+}
+
+lval* builtin_head(lval* a) {
+	//check error conditions
+	if (a->count != 1) {
+		lval_del(a);
+		return lval_err("Function 'head' passed too many arguments!");
+	}
+
+	if (a->cell[0]->type != LVAL_QEXPR) {
+		lval_del(a);
+		return lval_err("Function 'head' passed incorrect types!");
+	}
+
+	if (a->cell[0]->count == 0) {
+		lval_del(a);
+		return lval_err("Function 'head' passed {}!");
+	}
+
+	//otherwise take first argument
+	lval* v = lval_take(a, 0);
+
+	//delete all elements that are not head and return
+	while (v->count > 1) {
+		lval_del(lval_pop(v, 1));
+	}
+	return v;
+}
+
+lval* builtin_tail(lval* a) {
+	//check error conditions
+	if (a->count != 1) {
+		lval_del(a);
+		return lval_err("Function 'tail' passed too many arguments!");
+	}
+
+	if (a->cell[0]->type != LVAL_QEXPR) {
+		lval_del(a);
+		return lval_err("Function 'tail' passed incorrect types!");
+	}
+
+	if (a->cell[0]->count == 0) {
+		lval_del(a);
+		return lval_err("Function 'tail' passed {}!");
+	}
+
+	//Take first argument
+	lval* v = lval_take(a, 0);
+
+	//delete first element and return
+	lval_del(lval_pop(v, 0));
+	return v;
 }
 
 void lval_print(lval* v) {
