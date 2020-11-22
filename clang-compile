@@ -1,0 +1,1 @@
+clang -Wall *.c -ledit -lm -o lispy
